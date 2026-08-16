@@ -1,0 +1,1364 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "RhythmNest Billing API",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/admin/rates": {
+            "put": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Replace rates",
+                "parameters": [
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RatesUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Rate configuration replaced"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            },
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get rates",
+                "responses": {
+                    "200": {
+                        "description": "Current rate configuration",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RatesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/guest/count": {
+            "get": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Count active guests",
+                "responses": {
+                    "200": {
+                        "description": "Current active guest count",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GuestCountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/guest/{userId}/login": {
+            "put": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Log in guest",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OperationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Guest is active"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/guest/{userId}/logout": {
+            "put": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Log out and settle guest",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OperationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Guest is inactive and the bill is settled"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/guest/{userId}/bill": {
+            "get": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Get current bill",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current calculated bill",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BillResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/guest/{userId}/balance": {
+            "get": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Get guest balance",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current balance",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BalanceResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/guest/{userId}/changes": {
+            "get": {
+                "tags": [
+                    "guest"
+                ],
+                "summary": "Get recent balance changes",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum number of records; defaults to 5 and -1 returns all",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recent balance changes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BalanceChangesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/admin/debts": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get negative balances",
+                "parameters": [
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "All negative balances",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DebtsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/admin/{userId}": {
+            "put": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Add administrator",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OperationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Administrator added"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Delete administrator",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OperationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Administrator deleted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        },
+        "/admin/{userId}/balance": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Adjust guest balance",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "Target user ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Operator-Id",
+                        "in": "header",
+                        "description": "ID of the user performing the operation",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Request-Timestamp",
+                        "in": "header",
+                        "description": "Client request instant as Unix epoch milliseconds (UTC); must be within 60 seconds of server time. Billing maps this instant into the configured local time zone.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BalanceAdjustmentRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created balance adjustment",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BalanceAdjustmentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api-token": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "RatePeriodResponse": {
+                "type": "object",
+                "title": "RatePeriodResponse",
+                "required": [
+                    "start",
+                    "end",
+                    "amountPerHalfHour",
+                    "maxAmount"
+                ],
+                "properties": {
+                    "start": {
+                        "type": "string"
+                    },
+                    "end": {
+                        "type": "string"
+                    },
+                    "amountPerHalfHour": {
+                        "type": "integer"
+                    },
+                    "maxAmount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "RatesResponse": {
+                "type": "object",
+                "title": "RatesResponse",
+                "required": [
+                    "timeZone",
+                    "periods"
+                ],
+                "properties": {
+                    "timeZone": {
+                        "type": "string"
+                    },
+                    "periods": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RatePeriodResponse"
+                        }
+                    }
+                }
+            },
+            "ApiError": {
+                "type": "object",
+                "title": "ApiError",
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    }
+                }
+            },
+            "GuestCountResponse": {
+                "type": "object",
+                "title": "GuestCountResponse",
+                "required": [
+                    "count"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "OperationRequest": {
+                "type": "object",
+                "title": "OperationRequest",
+                "properties": {
+                    "note": {
+                        "type": "string"
+                    }
+                }
+            },
+            "BillResponse": {
+                "type": "object",
+                "title": "BillResponse",
+                "required": [
+                    "userId",
+                    "active",
+                    "calculatedAtMs",
+                    "amount"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "enteredAtMs": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "calculatedAtMs": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "BalanceResponse": {
+                "type": "object",
+                "title": "BalanceResponse",
+                "required": [
+                    "userId",
+                    "balance"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "balance": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "BalanceChangeResponse": {
+                "type": "object",
+                "title": "BalanceChangeResponse",
+                "required": [
+                    "requestedAtMs",
+                    "operatorId",
+                    "type",
+                    "delta",
+                    "balanceAfter",
+                    "reason"
+                ],
+                "properties": {
+                    "requestedAtMs": {
+                        "type": "integer"
+                    },
+                    "operatorId": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "balanceAfter": {
+                        "type": "integer"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "BalanceChangesResponse": {
+                "type": "object",
+                "title": "BalanceChangesResponse",
+                "required": [
+                    "userId",
+                    "changes"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "changes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BalanceChangeResponse"
+                        }
+                    }
+                }
+            },
+            "RatePeriodRequest": {
+                "type": "object",
+                "title": "RatePeriodRequest",
+                "required": [
+                    "start",
+                    "end",
+                    "amountPerHalfHour",
+                    "maxAmount"
+                ],
+                "properties": {
+                    "start": {
+                        "type": "string"
+                    },
+                    "end": {
+                        "type": "string"
+                    },
+                    "amountPerHalfHour": {
+                        "type": "integer"
+                    },
+                    "maxAmount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "RatesUpdateRequest": {
+                "type": "object",
+                "title": "RatesUpdateRequest",
+                "required": [
+                    "periods"
+                ],
+                "properties": {
+                    "periods": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RatePeriodRequest"
+                        }
+                    },
+                    "note": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DebtResponse": {
+                "type": "object",
+                "title": "DebtResponse",
+                "required": [
+                    "userId",
+                    "balance"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "balance": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "DebtsResponse": {
+                "type": "object",
+                "title": "DebtsResponse",
+                "required": [
+                    "count",
+                    "balances"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer"
+                    },
+                    "balances": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DebtResponse"
+                        }
+                    }
+                }
+            },
+            "BalanceAdjustmentRequest": {
+                "type": "object",
+                "title": "BalanceAdjustmentRequest",
+                "required": [
+                    "delta",
+                    "reason"
+                ],
+                "properties": {
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "BalanceAdjustmentResponse": {
+                "type": "object",
+                "title": "BalanceAdjustmentResponse",
+                "required": [
+                    "requestedAtMs",
+                    "operatorId",
+                    "userId",
+                    "delta",
+                    "balanceAfter",
+                    "reason"
+                ],
+                "properties": {
+                    "requestedAtMs": {
+                        "type": "integer"
+                    },
+                    "operatorId": {
+                        "type": "string"
+                    },
+                    "userId": {
+                        "type": "string"
+                    },
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "balanceAfter": {
+                        "type": "integer"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "api-token": {
+                "scheme": "bearer",
+                "description": "Billing API bearer token",
+                "type": "http"
+            }
+        }
+    }
+}
