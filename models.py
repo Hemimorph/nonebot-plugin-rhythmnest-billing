@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -26,19 +28,40 @@ class ApiError(ApiModel):
     error: str
 
 
+class ActiveGuestResponse(ApiModel):
+    user_id: str
+    entered_at_ms: int
+
+
 class GuestCountResponse(ApiModel):
     count: int
+    guests: list[ActiveGuestResponse]
 
 
 class OperationRequest(ApiModel):
     note: str | None = None
 
 
+class PeriodChargeResponse(ApiModel):
+    started_at_ms: int
+    ended_at_ms: int
+    amount: int
+
+
+class CheckoutResponse(ApiModel):
+    user_id: str
+    entered_at_ms: int
+    exited_at_ms: int
+    period_charges: list[PeriodChargeResponse]
+    total_amount: int
+    remaining_balance: int
+
+
 class BillResponse(ApiModel):
     user_id: str
-    active: bool
-    entered_at_ms: int | None = None
+    entered_at_ms: int
     calculated_at_ms: int
+    period_charges: list[PeriodChargeResponse]
     amount: int
 
 
@@ -50,7 +73,7 @@ class BalanceResponse(ApiModel):
 class BalanceChangeResponse(ApiModel):
     requested_at_ms: int
     operator_id: str
-    type: str
+    type: Literal["LOGOUT", "ADMIN_ADJUST"]
     delta: int
     balance_after: int
     reason: str
@@ -98,6 +121,7 @@ class BalanceAdjustmentResponse(ApiModel):
 
 
 __all__ = (
+    "ActiveGuestResponse",
     "ApiError",
     "BalanceAdjustmentRequest",
     "BalanceAdjustmentResponse",
@@ -105,10 +129,12 @@ __all__ = (
     "BalanceChangesResponse",
     "BalanceResponse",
     "BillResponse",
+    "CheckoutResponse",
     "DebtResponse",
     "DebtsResponse",
     "GuestCountResponse",
     "OperationRequest",
+    "PeriodChargeResponse",
     "RatePeriodRequest",
     "RatePeriodResponse",
     "RatesResponse",

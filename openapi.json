@@ -309,8 +309,15 @@
                     "required": true
                 },
                 "responses": {
-                    "204": {
-                        "description": "Guest is inactive and the bill is settled"
+                    "200": {
+                        "description": "Checkout receipt with per-period charges",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CheckoutResponse"
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -415,6 +422,9 @@
                                 }
                             }
                         }
+                    },
+                    "204": {
+                        "description": "Guest is not active"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1109,15 +1119,38 @@
                     }
                 }
             },
+            "ActiveGuestResponse": {
+                "type": "object",
+                "title": "ActiveGuestResponse",
+                "required": [
+                    "userId",
+                    "enteredAtMs"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "enteredAtMs": {
+                        "type": "integer"
+                    }
+                }
+            },
             "GuestCountResponse": {
                 "type": "object",
                 "title": "GuestCountResponse",
                 "required": [
-                    "count"
+                    "count",
+                    "guests"
                 ],
                 "properties": {
                     "count": {
                         "type": "integer"
+                    },
+                    "guests": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActiveGuestResponse"
+                        }
                     }
                 }
             },
@@ -1130,30 +1163,86 @@
                     }
                 }
             },
+            "PeriodChargeResponse": {
+                "type": "object",
+                "title": "PeriodChargeResponse",
+                "required": [
+                    "startedAtMs",
+                    "endedAtMs",
+                    "amount"
+                ],
+                "properties": {
+                    "startedAtMs": {
+                        "type": "integer"
+                    },
+                    "endedAtMs": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "CheckoutResponse": {
+                "type": "object",
+                "title": "CheckoutResponse",
+                "required": [
+                    "userId",
+                    "enteredAtMs",
+                    "exitedAtMs",
+                    "periodCharges",
+                    "totalAmount",
+                    "remainingBalance"
+                ],
+                "properties": {
+                    "userId": {
+                        "type": "string"
+                    },
+                    "enteredAtMs": {
+                        "type": "integer"
+                    },
+                    "exitedAtMs": {
+                        "type": "integer"
+                    },
+                    "periodCharges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeriodChargeResponse"
+                        }
+                    },
+                    "totalAmount": {
+                        "type": "integer"
+                    },
+                    "remainingBalance": {
+                        "type": "integer"
+                    }
+                }
+            },
             "BillResponse": {
                 "type": "object",
                 "title": "BillResponse",
                 "required": [
                     "userId",
-                    "active",
+                    "enteredAtMs",
                     "calculatedAtMs",
+                    "periodCharges",
                     "amount"
                 ],
                 "properties": {
                     "userId": {
                         "type": "string"
                     },
-                    "active": {
-                        "type": "boolean"
-                    },
                     "enteredAtMs": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
+                        "type": "integer"
                     },
                     "calculatedAtMs": {
                         "type": "integer"
+                    },
+                    "periodCharges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeriodChargeResponse"
+                        }
                     },
                     "amount": {
                         "type": "integer"
@@ -1195,7 +1284,11 @@
                         "type": "string"
                     },
                     "type": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                            "LOGOUT",
+                            "ADMIN_ADJUST"
+                        ]
                     },
                     "delta": {
                         "type": "integer"

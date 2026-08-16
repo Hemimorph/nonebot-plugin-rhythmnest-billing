@@ -1,4 +1,5 @@
 from collections.abc import Awaitable
+from datetime import datetime, timezone
 from typing import TypeVar
 
 from nonebot import get_driver, get_plugin_config
@@ -13,24 +14,31 @@ from nonebot_plugin_alconna import (
     CommandMeta,
     Extension,
     Match,
+    MsgTarget,
     MultiVar,
+    SupportScope,
     UniMessage,
     on_alconna,
 )
 from nonebot_plugin_alconna.extension import OutputType
-from pydantic import ValidationError
 
-from .client import BillingClient, BillingError
+from .client import BillingApiError, BillingClient, BillingError
 from .config import Config
 from .event_time import EventTimestampError, event_timestamp_ms
-from .models import BalanceChangeResponse, RatesUpdateRequest
+from .models import (
+    BalanceChangeResponse,
+    BillResponse,
+    CheckoutResponse,
+    PeriodChargeResponse,
+    RatePeriodRequest,
+)
 
 __plugin_meta__ = PluginMetadata(
     name="nonebot-plugin-rhythmnest-billing",
     description="RhythmNest 进出店与账单管理",
     usage=(
         "/rates\n"
-        "/setrates <JSON>\n"
+        "/setrates <开始HHMM> <结束HHMM> <半小时金额> <封顶> [...]\n"
         "/login [@用户]\n"
         "/logout [@用户]\n"
         "/count\n"
@@ -82,10 +90,22 @@ T = TypeVar("T")
 
 
 async def call_api(
-    matcher: type[AlconnaMatcher], operation: Awaitable[T]
+    matcher: type[AlconnaMatcher],
+    operation: Awaitable[T],
+    payment_required_message: str | UniMessage = "余额为负",
+    conflict_message: str | UniMessage | None = None,
 ) -> T:
     try:
         return await operation
+    except BillingApiError as error:
+        if error.status_code == 402:
+            message = payment_required_message
+        elif error.status_code == 409 and conflict_message is not None:
+            message = conflict_message
+        else:
+            message = f"请求失败: {error}"
+        await matcher.finish(message)
+        raise
     except BillingError as error:
         await matcher.finish(f"请求失败: {error}")
         raise
@@ -117,10 +137,164 @@ async def platform_timestamp_ms(
         raise
 
 
+def parse_rate_periods(values: tuple[str, ...]) -> list[RatePeriodRequest]:
+    normalized = " ".join(values)
+    for separator in (";", "；", "|", ",", "，"):
+        normalized = normalized.replace(separator, " ")
+    parts = normalized.split()
+    if not parts or len(parts) % 4:
+        raise ValueError("invalid rate periods")
+    periods = []
+    for index in range(0, len(parts), 4):
+        start_minutes = rate_input_minutes(parts[index])
+        end_minutes = rate_input_minutes(parts[index + 1])
+        periods.append(
+            RatePeriodRequest(
+                start=serialize_rate_time(start_minutes),
+                end=serialize_rate_time(end_minutes),
+                amount_per_half_hour=int(parts[index + 2]),
+                max_amount=int(parts[index + 3]),
+            )
+        )
+    return periods
+
+
+def rate_input_minutes(value: str) -> int:
+    if len(value) != 4 or not value.isdigit():
+        raise ValueError("invalid rate input time")
+    hour = int(value[:2])
+    minute = int(value[2:])
+    if minute >= 60:
+        raise ValueError("invalid rate input time")
+    return hour * 60 + minute
+
+
+def rate_time_minutes(value: str) -> int:
+    raw = value.strip()
+    if ":" in raw:
+        components = raw.split(":")
+        if len(components) != 2 or not all(
+            component.isdigit() for component in components
+        ):
+            raise ValueError("invalid rate time")
+        hour, minute = map(int, components)
+    else:
+        if len(raw) < 3 or not raw.isdigit():
+            raise ValueError("invalid rate time")
+        hour = int(raw[:-2])
+        minute = int(raw[-2:])
+    if minute >= 60:
+        raise ValueError("invalid rate time")
+    return hour * 60 + minute
+
+
+def serialize_rate_time(total_minutes: int) -> str:
+    hour, minute = divmod(total_minutes, 60)
+    return f"{hour:02d}{minute:02d}"
+
+
+def format_rate_time(value: str) -> str:
+    try:
+        total_minutes = rate_time_minutes(value) % (24 * 60)
+    except ValueError:
+        return value
+    hour, minute = divmod(total_minutes, 60)
+    return f"{hour:02d}:{minute:02d}"
+
+
 def format_change(change: BalanceChangeResponse) -> str:
-    return (
-        f"{change.requested_at_ms} | {change.delta:+d} | "
-        f"余额 {change.balance_after} | {change.reason}"
+    changed_at = datetime.fromtimestamp(
+        change.requested_at_ms / 1000,
+        timezone.utc,
+    ).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    reason = {
+        "LOGOUT": "离店结账",
+        "ADMIN_ADJUST": "管理员调整",
+    }[change.type]
+    result = (
+        f"{changed_at} | {change.delta:+d} | "
+        f"余额 {change.balance_after} | 原因: {reason}"
+    )
+    note = change.reason.strip()
+    if note:
+        result += f" | 备注: {note}"
+    return result
+
+
+def format_entered_at(entered_at_ms: int) -> str:
+    return datetime.fromtimestamp(
+        entered_at_ms / 1000,
+        timezone.utc,
+    ).astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def mention_users_message(
+    message_target: MsgTarget,
+    header: str,
+    users: list[tuple[str, str]],
+) -> UniMessage:
+    if message_target.extra.get("scope") == SupportScope.qq_api:
+        lines = [header] if header else []
+        lines.extend(f"<@{user_id}>{text}" for user_id, text in users)
+        return UniMessage.style("\n".join(lines), "markdown")
+    message = UniMessage.text(header) if header else UniMessage()
+    for user_id, text in users:
+        if message:
+            message.text("\n")
+        message.at(user_id).text(text)
+    return message
+
+
+def format_charge_details(
+    title: str,
+    entered_at_ms: int,
+    ended_at_label: str,
+    ended_at_ms: int,
+    period_charges: list[PeriodChargeResponse],
+    total_amount: int,
+    remaining_balance: int | None = None,
+) -> str:
+    lines = [
+        f" {title}",
+        f"进店时间: {format_entered_at(entered_at_ms)}",
+        f"{ended_at_label}: {format_entered_at(ended_at_ms)}",
+        "计费区段:",
+    ]
+    if period_charges:
+        lines.extend(
+            f"{index}. {format_entered_at(charge.started_at_ms)} - "
+            f"{format_entered_at(charge.ended_at_ms)} | "
+            f"费用: {charge.amount}"
+            for index, charge in enumerate(period_charges, 1)
+        )
+    else:
+        lines.append("无")
+    lines.append(f"总费用: {total_amount}")
+    if remaining_balance is not None:
+        lines.append(f"结账后余额: {remaining_balance}")
+    return "\n".join(lines)
+
+
+def format_checkout(checkout: CheckoutResponse) -> str:
+    return format_charge_details(
+        "结账单",
+        checkout.entered_at_ms,
+        "离店时间",
+        checkout.exited_at_ms,
+        checkout.period_charges,
+        checkout.total_amount,
+        checkout.remaining_balance,
+    )
+
+
+def format_bill(bill: BillResponse) -> str:
+    return format_charge_details(
+        "当前账单",
+        bill.entered_at_ms,
+        "计算时间",
+        bill.calculated_at_ms,
+        bill.period_charges,
+        bill.amount,
     )
 
 
@@ -138,7 +312,8 @@ async def handle_rates() -> None:
     response = await call_api(nest_rates, billing_client.get_rates())
     lines = [f"时区: {response.time_zone}"]
     lines.extend(
-        f"{period.start}-{period.end} | 每半小时 "
+        f"{format_rate_time(period.start)}-"
+        f"{format_rate_time(period.end)} | 每半小时 "
         f"{period.amount_per_half_hour} | 封顶 {period.max_amount}"
         for period in response.periods
     )
@@ -148,10 +323,13 @@ async def handle_rates() -> None:
 nest_setrates = on_alconna(
     Alconna(
         "setrates",
-        Args["payload", MultiVar(str)],
+        Args["periods", MultiVar(str)],
         meta=CommandMeta(
             description="替换费率",
-            usage="/setrates <RatesUpdateRequest JSON>",
+            usage=(
+                "/setrates 0900 1800 5 50 "
+                "[1800 3300 8 80 ...]"
+            ),
         ),
     ),
     aliases={"设置费率"},
@@ -164,20 +342,22 @@ nest_setrates = on_alconna(
 
 @nest_setrates.handle()
 async def handle_setrates(
-    event: Event, payload: tuple[str, ...]
+    event: Event, periods: tuple[str, ...]
 ) -> None:
     try:
-        request = RatesUpdateRequest.model_validate_json(" ".join(payload))
-    except ValidationError:
-        await nest_setrates.finish("费率配置 JSON 格式错误")
+        rate_periods = parse_rate_periods(periods)
+    except ValueError:
+        await nest_setrates.finish(
+            "格式: /setrates <开始HHMM> <结束HHMM> "
+            "<每半小时金额> <封顶金额> [...]"
+        )
         raise
     await call_api(
         nest_setrates,
         billing_client.replace_rates(
-            request.periods,
+            rate_periods,
             event.get_user_id(),
             await platform_timestamp_ms(nest_setrates, event),
-            request.note,
         ),
     )
     await nest_setrates.finish("费率替换成功")
@@ -197,7 +377,11 @@ nest_login = on_alconna(
 
 
 @nest_login.handle()
-async def handle_login(event: Event, target: Match[At]) -> None:
+async def handle_login(
+    event: Event,
+    target: Match[At],
+    message_target: MsgTarget,
+) -> None:
     operator_id = event.get_user_id()
     user_id = await resolve_user_id(nest_login, target, event)
     await call_api(
@@ -207,8 +391,19 @@ async def handle_login(event: Event, target: Match[At]) -> None:
             operator_id,
             await platform_timestamp_ms(nest_login, event),
         ),
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, " 余额为负，入店失败")],
+        ),
     )
-    await nest_login.finish("入店成功")
+    await nest_login.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, " 入店成功")],
+        )
+    )
 
 
 nest_logout = on_alconna(
@@ -225,18 +420,33 @@ nest_logout = on_alconna(
 
 
 @nest_logout.handle()
-async def handle_logout(event: Event, target: Match[At]) -> None:
+async def handle_logout(
+    event: Event,
+    target: Match[At],
+    message_target: MsgTarget,
+) -> None:
     operator_id = event.get_user_id()
     user_id = await resolve_user_id(nest_logout, target, event)
-    await call_api(
+    checkout = await call_api(
         nest_logout,
         billing_client.logout_guest(
             user_id,
             operator_id,
             await platform_timestamp_ms(nest_logout, event),
         ),
+        conflict_message=mention_users_message(
+            message_target,
+            "",
+            [(user_id, " 当前不在店")],
+        ),
     )
-    await nest_logout.finish("离店成功")
+    await nest_logout.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, format_checkout(checkout))],
+        )
+    )
 
 
 nest_count = on_alconna(
@@ -249,9 +459,27 @@ nest_count = on_alconna(
 
 
 @nest_count.handle()
-async def handle_count() -> None:
+async def handle_count(message_target: MsgTarget) -> None:
     response = await call_api(nest_count, billing_client.count_active_guests())
-    await nest_count.finish(f"当前店内人数为: {response.count}")
+    if not response.guests:
+        await nest_count.finish(f"当前店内人数为: {response.count}")
+    if message_target.extra.get("scope") == SupportScope.qq_api:
+        lines = [f"当前店内人数为: {response.count}"]
+        lines.extend(
+            f"<@{guest.user_id}> | "
+            f"进店时间: {format_entered_at(guest.entered_at_ms)}"
+            for guest in response.guests
+        )
+        await nest_count.finish(
+            UniMessage.style("\n".join(lines), "markdown")
+        )
+    lines = [f"当前店内人数为: {response.count}"]
+    lines.extend(
+        f"OpenID: {guest.user_id} | "
+        f"进店时间: {format_entered_at(guest.entered_at_ms)}"
+        for guest in response.guests
+    )
+    await nest_count.finish("\n".join(lines))
 
 
 nest_bill = on_alconna(
@@ -268,7 +496,11 @@ nest_bill = on_alconna(
 
 
 @nest_bill.handle()
-async def handle_bill(event: Event, target: Match[At]) -> None:
+async def handle_bill(
+    event: Event,
+    target: Match[At],
+    message_target: MsgTarget,
+) -> None:
     operator_id = event.get_user_id()
     user_id = await resolve_user_id(nest_bill, target, event)
     response = await call_api(
@@ -279,7 +511,20 @@ async def handle_bill(event: Event, target: Match[At]) -> None:
             await platform_timestamp_ms(nest_bill, event),
         ),
     )
-    await nest_bill.finish(f"当前账单为: {response.amount}")
+    await nest_bill.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [
+                (
+                    user_id,
+                    format_bill(response)
+                    if response is not None
+                    else " 当前不在店",
+                )
+            ],
+        )
+    )
 
 
 nest_balance = on_alconna(
@@ -296,7 +541,11 @@ nest_balance = on_alconna(
 
 
 @nest_balance.handle()
-async def handle_balance(event: Event, target: Match[At]) -> None:
+async def handle_balance(
+    event: Event,
+    target: Match[At],
+    message_target: MsgTarget,
+) -> None:
     operator_id = event.get_user_id()
     user_id = await resolve_user_id(nest_balance, target, event)
     response = await call_api(
@@ -307,7 +556,13 @@ async def handle_balance(event: Event, target: Match[At]) -> None:
             await platform_timestamp_ms(nest_balance, event),
         ),
     )
-    await nest_balance.finish(f"当前余额为: {response.balance}")
+    await nest_balance.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, f" 当前余额为: {response.balance}")],
+        )
+    )
 
 
 nest_last = on_alconna(
@@ -328,7 +583,10 @@ nest_last = on_alconna(
 
 @nest_last.handle()
 async def handle_last(
-    event: Event, target: Match[At], limit: Match[int]
+    event: Event,
+    target: Match[At],
+    limit: Match[int],
+    message_target: MsgTarget,
 ) -> None:
     operator_id = event.get_user_id()
     user_id = await resolve_user_id(nest_last, target, event)
@@ -342,9 +600,21 @@ async def handle_last(
         ),
     )
     if not response.changes:
-        await nest_last.finish("最近没有余额变动")
+        await nest_last.finish(
+            mention_users_message(
+                message_target,
+                "",
+                [(user_id, " 最近没有余额变动")],
+            )
+        )
     lines = "\n".join(format_change(change) for change in response.changes)
-    await nest_last.finish(f"最近余额变动:\n{lines}")
+    await nest_last.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, f" 最近余额变动:\n{lines}")],
+        )
+    )
 
 
 nest_debts = on_alconna(
@@ -358,7 +628,9 @@ nest_debts = on_alconna(
 
 
 @nest_debts.handle()
-async def handle_debts(event: Event) -> None:
+async def handle_debts(
+    event: Event, message_target: MsgTarget
+) -> None:
     response = await call_api(
         nest_debts,
         billing_client.get_debts(
@@ -368,11 +640,16 @@ async def handle_debts(event: Event) -> None:
     )
     if not response.balances:
         await nest_debts.finish("当前没有欠款")
-    lines = "\n".join(
-        f"{balance.user_id}: {balance.balance}"
-        for balance in response.balances
+    await nest_debts.finish(
+        mention_users_message(
+            message_target,
+            f"欠款人数: {response.count}",
+            [
+                (balance.user_id, f" | 余额: {balance.balance}")
+                for balance in response.balances
+            ],
+        )
     )
-    await nest_debts.finish(f"欠款人数: {response.count}\n{lines}")
 
 
 nest_addadmin = on_alconna(
@@ -454,6 +731,7 @@ async def handle_addbalance(
     target: At,
     amount: int,
     reason: tuple[str, ...],
+    message_target: MsgTarget,
 ) -> None:
     if amount <= 0:
         await nest_addbalance.finish("金额必须为正整数")
@@ -468,7 +746,13 @@ async def handle_addbalance(
             await platform_timestamp_ms(nest_addbalance, event),
         ),
     )
-    await nest_addbalance.finish("增加余额成功")
+    await nest_addbalance.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, " 增加余额成功")],
+        )
+    )
 
 
 nest_subbalance = on_alconna(
@@ -494,6 +778,7 @@ async def handle_subbalance(
     target: At,
     amount: int,
     reason: tuple[str, ...],
+    message_target: MsgTarget,
 ) -> None:
     if amount <= 0:
         await nest_subbalance.finish("金额必须为正整数")
@@ -508,4 +793,10 @@ async def handle_subbalance(
             await platform_timestamp_ms(nest_subbalance, event),
         ),
     )
-    await nest_subbalance.finish("减少余额成功")
+    await nest_subbalance.finish(
+        mention_users_message(
+            message_target,
+            "",
+            [(user_id, " 减少余额成功")],
+        )
+    )

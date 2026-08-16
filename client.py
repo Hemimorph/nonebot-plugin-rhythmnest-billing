@@ -12,6 +12,7 @@ from .models import (
     BalanceChangesResponse,
     BalanceResponse,
     BillResponse,
+    CheckoutResponse,
     DebtsResponse,
     GuestCountResponse,
     OperationRequest,
@@ -119,7 +120,7 @@ class BillingClient:
         self,
         method: str,
         path: str,
-        expected_status: int,
+        expected_status: int | tuple[int, ...],
         authenticated: bool,
         operator_id: str | None = None,
         request_timestamp: int | None = None,
@@ -140,7 +141,12 @@ class BillingClient:
             )
         except httpx.HTTPError as exc:
             raise BillingTransportError(str(exc)) from exc
-        if response.status_code != expected_status:
+        expected_statuses = (
+            (expected_status,)
+            if isinstance(expected_status, int)
+            else expected_status
+        )
+        if response.status_code not in expected_statuses:
             raise self._api_error(response)
         return response
 
@@ -235,13 +241,13 @@ class BillingClient:
         operator_id: str,
         request_timestamp: int,
         note: str | None = None,
-    ) -> None:
+    ) -> CheckoutResponse:
         request = OperationRequest(note=note)
         encoded_user_id = quote(user_id, safe="")
-        await self._request(
+        response = await self._request(
             "PUT",
             f"guest/{encoded_user_id}/logout",
-            204,
+            200,
             authenticated=True,
             operator_id=operator_id,
             request_timestamp=request_timestamp,
@@ -251,22 +257,25 @@ class BillingClient:
                 exclude_none=True,
             ),
         )
+        return self._response_model(response, CheckoutResponse)
 
     async def get_bill(
         self,
         user_id: str,
         operator_id: str,
         request_timestamp: int,
-    ) -> BillResponse:
+    ) -> BillResponse | None:
         encoded_user_id = quote(user_id, safe="")
         response = await self._request(
             "GET",
             f"guest/{encoded_user_id}/bill",
-            200,
+            (200, 204),
             authenticated=True,
             operator_id=operator_id,
             request_timestamp=request_timestamp,
         )
+        if response.status_code == 204:
+            return None
         return self._response_model(response, BillResponse)
 
     async def get_balance(
