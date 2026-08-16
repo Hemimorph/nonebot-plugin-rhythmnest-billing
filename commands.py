@@ -1,9 +1,11 @@
+import json
 from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import TypeVar
 
-from nonebot import get_driver, get_plugin_config
+from nonebot import get_bots, get_driver, get_plugin_config, logger
 from nonebot.adapters import Event
+from nonebot.adapters.feishu import Bot as FeishuBot
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 from nonebot_plugin_alconna import (
@@ -61,6 +63,40 @@ billing_client = BillingClient(config.api_url, config.api_token)
 @get_driver().on_shutdown
 async def close_billing_client() -> None:
     await billing_client.aclose()
+
+
+async def notify_negative_checkout(checkout: CheckoutResponse) -> None:
+    app_id = config.notification_feishu_app_id
+    chat_id = config.notification_feishu_chat_id
+    if not app_id or not chat_id:
+        return
+
+    bot = get_bots().get(app_id)
+    if not isinstance(bot, FeishuBot):
+        logger.warning(
+            f"Negative balance notification skipped: Feishu bot {app_id} "
+            "is not connected"
+        )
+        return
+
+    text = (
+        "用户离店后余额为负\n"
+        f"用户 ID: {checkout.user_id}\n"
+        f"本次费用: {checkout.total_amount}\n"
+        f"结账后余额: {checkout.remaining_balance}"
+    )
+    try:
+        await bot.send_msg(
+            receive_id_type="chat_id",
+            receive_id=chat_id,
+            msg_type="text",
+            content=json.dumps({"text": text}, ensure_ascii=False),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send negative balance notification to "
+            f"Feishu chat {chat_id}"
+        )
 
 
 class HelpOnErrorExtension(Extension):
@@ -440,6 +476,8 @@ async def handle_logout(
             [(user_id, " 当前不在店")],
         ),
     )
+    if checkout.remaining_balance < 0:
+        await notify_negative_checkout(checkout)
     await nest_logout.finish(
         mention_users_message(
             message_target,
