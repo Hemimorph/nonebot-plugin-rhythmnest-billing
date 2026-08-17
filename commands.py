@@ -163,6 +163,14 @@ async def call_api(
             message = conflict_message
         else:
             message = f"请求失败: {error}"
+        if error.status_code == 403:
+            permission_denied_notice = "您无权执行此操作，该行为已被记录。"
+            if isinstance(message, str):
+                message = f"{message}\n{permission_denied_notice}"
+            else:
+                message = UniMessage(message).text(
+                    f"\n{permission_denied_notice}"
+                )
         image = await http_status_image(error.status_code)
         if image is None:
             await matcher.finish(message)
@@ -180,15 +188,17 @@ async def call_api(
 
 
 async def mentioned_user_id(
-    matcher: type[AlconnaMatcher], target: At
+    matcher: type[AlconnaMatcher], target: At | str
 ) -> str:
+    if isinstance(target, str):
+        return target
     if target.flag != "user":
         await matcher.finish("请指定用户")
     return target.target
 
 
 async def resolve_user_id(
-    matcher: type[AlconnaMatcher], target: Match[At], event: Event
+    matcher: type[AlconnaMatcher], target: Match[At | str], event: Event
 ) -> str:
     if not target.available:
         return event.get_user_id()
@@ -434,7 +444,7 @@ async def handle_setrates(
 nest_login = on_alconna(
     Alconna(
         "login",
-        Args["target?", At],
+        Args["target?", At | str],
         meta=CommandMeta(description="进店", usage="/login [@用户]"),
     ),
     aliases={"进店", "li"},
@@ -447,7 +457,7 @@ nest_login = on_alconna(
 @nest_login.handle()
 async def handle_login(
     event: Event,
-    target: Match[At],
+    target: Match[At | str],
     message_target: MsgTarget,
 ) -> None:
     operator_id = event.get_user_id()
@@ -477,7 +487,7 @@ async def handle_login(
 nest_logout = on_alconna(
     Alconna(
         "logout",
-        Args["target?", At],
+        Args["target?", At | str],
         meta=CommandMeta(description="离店", usage="/logout [@用户]"),
     ),
     aliases={"离店", "lo"},
@@ -490,7 +500,7 @@ nest_logout = on_alconna(
 @nest_logout.handle()
 async def handle_logout(
     event: Event,
-    target: Match[At],
+    target: Match[At | str],
     message_target: MsgTarget,
 ) -> None:
     operator_id = event.get_user_id()
@@ -555,7 +565,7 @@ async def handle_count(message_target: MsgTarget) -> None:
 nest_bill = on_alconna(
     Alconna(
         "bill",
-        Args["target?", At],
+        Args["target?", At | str],
         meta=CommandMeta(description="查看当前账单", usage="/bill [@用户]"),
     ),
     aliases={"账单"},
@@ -568,7 +578,7 @@ nest_bill = on_alconna(
 @nest_bill.handle()
 async def handle_bill(
     event: Event,
-    target: Match[At],
+    target: Match[At | str],
     message_target: MsgTarget,
 ) -> None:
     operator_id = event.get_user_id()
@@ -600,7 +610,7 @@ async def handle_bill(
 nest_balance = on_alconna(
     Alconna(
         "balance",
-        Args["target?", At],
+        Args["target?", At | str],
         meta=CommandMeta(description="查看当前余额", usage="/balance [@用户]"),
     ),
     aliases={"余额"},
@@ -613,7 +623,7 @@ nest_balance = on_alconna(
 @nest_balance.handle()
 async def handle_balance(
     event: Event,
-    target: Match[At],
+    target: Match[At | str],
     message_target: MsgTarget,
 ) -> None:
     operator_id = event.get_user_id()
@@ -638,7 +648,7 @@ async def handle_balance(
 nest_last = on_alconna(
     Alconna(
         "lastchange",
-        Args["target?", At]["limit?", int],
+        Args["target?", At | str]["limit?", int],
         meta=CommandMeta(
             description="查看最近余额变动",
             usage="/lastchange [@用户] [条数]",
@@ -654,7 +664,7 @@ nest_last = on_alconna(
 @nest_last.handle()
 async def handle_last(
     event: Event,
-    target: Match[At],
+    target: Match[At | str],
     limit: Match[int],
     message_target: MsgTarget,
 ) -> None:
@@ -725,7 +735,7 @@ async def handle_debts(
 nest_addadmin = on_alconna(
     Alconna(
         "addadmin",
-        Args["target", At],
+        Args["target", At | str],
         meta=CommandMeta(description="添加管理员", usage="/addadmin @用户"),
     ),
     aliases={"添加管理员"},
@@ -737,7 +747,7 @@ nest_addadmin = on_alconna(
 
 
 @nest_addadmin.handle()
-async def handle_addadmin(event: Event, target: At) -> None:
+async def handle_addadmin(event: Event, target: At | str) -> None:
     user_id = await mentioned_user_id(nest_addadmin, target)
     await call_api(
         nest_addadmin,
@@ -753,7 +763,7 @@ async def handle_addadmin(event: Event, target: At) -> None:
 nest_deladmin = on_alconna(
     Alconna(
         "deladmin",
-        Args["target", At],
+        Args["target", At | str],
         meta=CommandMeta(description="删除管理员", usage="/deladmin @用户"),
     ),
     aliases={"删除管理员"},
@@ -765,7 +775,7 @@ nest_deladmin = on_alconna(
 
 
 @nest_deladmin.handle()
-async def handle_deladmin(event: Event, target: At) -> None:
+async def handle_deladmin(event: Event, target: At | str) -> None:
     user_id = await mentioned_user_id(nest_deladmin, target)
     await call_api(
         nest_deladmin,
@@ -781,7 +791,7 @@ async def handle_deladmin(event: Event, target: At) -> None:
 nest_addbalance = on_alconna(
     Alconna(
         "addbalance",
-        Args["target", At]["amount", int]["reason", MultiVar(str)],
+        Args["target", At | str]["amount", int]["reason", MultiVar(str)],
         meta=CommandMeta(
             description="增加余额",
             usage="/addbalance @用户 <整数金额> <理由>",
@@ -798,7 +808,7 @@ nest_addbalance = on_alconna(
 @nest_addbalance.handle()
 async def handle_addbalance(
     event: Event,
-    target: At,
+    target: At | str,
     amount: int,
     reason: tuple[str, ...],
     message_target: MsgTarget,
@@ -828,7 +838,7 @@ async def handle_addbalance(
 nest_subbalance = on_alconna(
     Alconna(
         "subbalance",
-        Args["target", At]["amount", int]["reason", MultiVar(str)],
+        Args["target", At | str]["amount", int]["reason", MultiVar(str)],
         meta=CommandMeta(
             description="减少余额",
             usage="/subbalance @用户 <整数金额> <理由>",
@@ -845,7 +855,7 @@ nest_subbalance = on_alconna(
 @nest_subbalance.handle()
 async def handle_subbalance(
     event: Event,
-    target: At,
+    target: At | str,
     amount: int,
     reason: tuple[str, ...],
     message_target: MsgTarget,
