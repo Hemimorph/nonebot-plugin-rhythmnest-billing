@@ -1,7 +1,20 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+
+UnixTimestampMs = Annotated[
+    int,
+    Field(
+        strict=True,
+        description=(
+            "Unix timestamp in milliseconds since "
+            "1970-01-01T00:00:00Z (UTC)."
+        ),
+        json_schema_extra={"format": "int64"},
+    ),
+]
 
 
 class ApiModel(BaseModel):
@@ -30,7 +43,7 @@ class ApiError(ApiModel):
 
 class ActiveGuestResponse(ApiModel):
     user_id: str
-    entered_at_ms: int
+    entered_at_ms: UnixTimestampMs
 
 
 class GuestCountResponse(ApiModel):
@@ -43,15 +56,15 @@ class OperationRequest(ApiModel):
 
 
 class PeriodChargeResponse(ApiModel):
-    started_at_ms: int
-    ended_at_ms: int
+    started_at_ms: UnixTimestampMs
+    ended_at_ms: UnixTimestampMs
     amount: int
 
 
 class CheckoutResponse(ApiModel):
     user_id: str
-    entered_at_ms: int
-    exited_at_ms: int
+    entered_at_ms: UnixTimestampMs
+    exited_at_ms: UnixTimestampMs
     period_charges: list[PeriodChargeResponse]
     total_amount: int
     remaining_balance: int
@@ -59,8 +72,8 @@ class CheckoutResponse(ApiModel):
 
 class BillResponse(ApiModel):
     user_id: str
-    entered_at_ms: int
-    calculated_at_ms: int
+    entered_at_ms: UnixTimestampMs
+    calculated_at_ms: UnixTimestampMs
     period_charges: list[PeriodChargeResponse]
     amount: int
 
@@ -71,7 +84,7 @@ class BalanceResponse(ApiModel):
 
 
 class BalanceChangeResponse(ApiModel):
-    requested_at_ms: int
+    requested_at_ms: UnixTimestampMs
     operator_id: str
     type: Literal["LOGOUT", "ADMIN_ADJUST"]
     delta: int
@@ -112,7 +125,7 @@ class BalanceAdjustmentRequest(ApiModel):
 
 
 class BalanceAdjustmentResponse(ApiModel):
-    requested_at_ms: int
+    requested_at_ms: UnixTimestampMs
     operator_id: str
     user_id: str
     delta: int
@@ -139,4 +152,5 @@ __all__ = (
     "RatePeriodResponse",
     "RatesResponse",
     "RatesUpdateRequest",
+    "UnixTimestampMs",
 )

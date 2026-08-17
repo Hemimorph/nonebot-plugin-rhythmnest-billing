@@ -1131,7 +1131,9 @@
                         "type": "string"
                     },
                     "enteredAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     }
                 }
             },
@@ -1173,10 +1175,14 @@
                 ],
                 "properties": {
                     "startedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "endedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "amount": {
                         "type": "integer"
@@ -1199,10 +1205,14 @@
                         "type": "string"
                     },
                     "enteredAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "exitedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "periodCharges": {
                         "type": "array",
@@ -1233,10 +1243,14 @@
                         "type": "string"
                     },
                     "enteredAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "calculatedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "periodCharges": {
                         "type": "array",
@@ -1278,7 +1292,9 @@
                 ],
                 "properties": {
                     "requestedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "operatorId": {
                         "type": "string"
@@ -1426,7 +1442,9 @@
                 ],
                 "properties": {
                     "requestedAtMs": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).",
+                        "format": "int64"
                     },
                     "operatorId": {
                         "type": "string"
