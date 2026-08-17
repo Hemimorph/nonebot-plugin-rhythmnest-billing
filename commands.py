@@ -3,6 +3,7 @@ from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import TypeVar
 
+import httpx
 from nonebot import get_bots, get_driver, get_plugin_config, logger
 from nonebot.adapters import Event
 from nonebot.adapters.feishu import Bot as FeishuBot
@@ -125,6 +126,28 @@ ERROR_HELP_EXTENSIONS = [HelpOnErrorExtension]
 T = TypeVar("T")
 
 
+async def http_status_image(status_code: int) -> UniMessage | None:
+    if not 400 <= status_code < 600:
+        return None
+    image_url = f"https://http.cat/{status_code}.jpg"
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=10.0
+        ) as client:
+            response = await client.get(image_url)
+            response.raise_for_status()
+    except httpx.HTTPError as error:
+        logger.warning(
+            f"Failed to download HTTP status image {image_url}: {error}"
+        )
+        return None
+    return UniMessage.image(
+        raw=response.content,
+        mimetype=response.headers.get("content-type", "image/jpeg"),
+        name=f"http-{status_code}.jpg",
+    )
+
+
 async def call_api(
     matcher: type[AlconnaMatcher],
     operation: Awaitable[T],
@@ -140,7 +163,16 @@ async def call_api(
             message = conflict_message
         else:
             message = f"请求失败: {error}"
-        await matcher.finish(message)
+        image = await http_status_image(error.status_code)
+        if image is None:
+            await matcher.finish(message)
+        result = (
+            UniMessage.text(message)
+            if isinstance(message, str)
+            else UniMessage(message)
+        )
+        result.text("\n").extend(image)
+        await matcher.finish(result)
         raise
     except BillingError as error:
         await matcher.finish(f"请求失败: {error}")
